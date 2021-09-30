@@ -1,8 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #define MNOZNIK 3
 #define DZIELNIK 2
+
+typedef enum KierunekPchniecia {
+    DOL = 2,
+    LEWO = 4,
+    PRAWO = 6,
+    GORA = 8
+}kierunek;
 
 typedef struct Wiersz {
     int rozmiar;
@@ -38,7 +46,7 @@ void dodajKolumny(wiersz *w) {
     w -> kolumna = (char*)realloc(w -> kolumna, (w -> maxRozmiar) * sizeof(char));
 }
 
-void wczytajPlansze(plansza *p) {
+void wczytajPlansze(plansza *p, int gdzieSkrzynie[][2], int gdziePostac[]) {
     int znak = 0;
     int poprzedni = 0;
     dodajWiersze(p);
@@ -55,6 +63,16 @@ void wczytajPlansze(plansza *p) {
             iniWiersz(obecnyWiersz);
         }
         else {
+            if((znak >= 'a' && znak <= 'z') || (znak >= 'A' && znak <= 'Z')) {
+                int malaLitera = tolower(znak);
+                gdzieSkrzynie[malaLitera - 'a'][0] = p -> rozmiar;
+                gdzieSkrzynie[malaLitera - 'a'][1] = obecnyWiersz -> rozmiar;
+            }
+            else if(znak == '@' || znak == '*') {
+                gdziePostac[0] = p -> rozmiar;
+                gdziePostac[1] = obecnyWiersz -> rozmiar;
+            }
+
             if(obecnyWiersz -> rozmiar == obecnyWiersz -> maxRozmiar) {
                 dodajKolumny(obecnyWiersz);
             }
@@ -93,8 +111,11 @@ void zwolnijPamiec(plansza *p) {
 
 int main(void) {
     plansza p;
+    int gdzieSkrzynie[26][2] = {0};
+    int gdziePostac[2] = {0};
+
     iniPlansza(&p);
-    wczytajPlansze(&p);
+    wczytajPlansze(&p, gdzieSkrzynie, gdziePostac);
     wypiszPlansze(&p);
     zwolnijPamiec(&p);
     
