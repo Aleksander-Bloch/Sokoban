@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #define MNOZNIK 3
 #define DZIELNIK 2
@@ -30,6 +31,15 @@ void wstawZnak(wiersz *W, char c) {
 	}
 	W -> znaki[W -> rozmiar] = c;
 	(W -> rozmiar)++;
+}
+
+int pustyWiersz(wiersz *W) {
+	return (W -> rozmiar) == 0;
+}
+
+int ostatniZnak(wiersz *W) {
+	if(pustyWiersz(W)) return __INT_MAX__;
+	return W -> znaki[(W -> rozmiar) - 1];
 }
 
 void wyczyscWiersz(wiersz *W) {
@@ -79,12 +89,37 @@ void wyczyscPlansze(plansza *P) {
 //====================================================================================================
 //Wczytywanie planszy
 
-void wczytajPlansze(plansza *P) {
+typedef struct Pozycja {
+	int nrWiersza;
+	int nrKolumny;
+}pozycja;
+
+int czySkrzynia(char c) {
+	return isalpha(c);
+}
+
+int czyPostac(char c) {
+	return c == '@' || c == '*';
+}
+
+void ustawPozycje(pozycja *poz, int numerWiersza, int numerKolumny) {
+	poz -> nrWiersza = numerWiersza;
+	poz -> nrKolumny = numerKolumny;
+}
+
+void wczytajPlansze(plansza *P, pozycja skrzynie[], pozycja *postac) {
     char c = 0;
     while((c = getchar()) != '\n') {
         wiersz *obecnyWiersz = wstawWiersz(P);
         do {
-            wstawZnak(obecnyWiersz, c);
+			wstawZnak(obecnyWiersz, c);
+			if(czySkrzynia(c)) {
+				pozycja *pozSkrzyni = &skrzynie[tolower(c) - 'a'];
+				ustawPozycje(pozSkrzyni, P -> rozmiar - 1, obecnyWiersz -> rozmiar - 1);
+			}
+			else if(czyPostac(c)) {
+				ustawPozycje(postac, P -> rozmiar - 1, obecnyWiersz -> rozmiar - 1);
+			}
         }while((c = getchar()) != '\n');
     }
 }
@@ -108,8 +143,10 @@ void rysujPlansze(plansza *P) {
 
 int main(void) {
     plansza P;
+	pozycja skrzynie[26];
+	pozycja postac;
     initPlansza(&P);
-    wczytajPlansze(&P);
+    wczytajPlansze(&P, skrzynie, &postac);
     rysujPlansze(&P);
     wyczyscPlansze(&P);
     
