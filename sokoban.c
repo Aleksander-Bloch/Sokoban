@@ -1,123 +1,115 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 
 #define MNOZNIK 3
 #define DZIELNIK 2
 
-typedef enum KierunekPchniecia {
-    DOL = 2,
-    LEWO = 4,
-    PRAWO = 6,
-    GORA = 8
-}kierunek;
+//====================================================================================================
+//Implementacja pojedynczego wiersza w planszy
 
 typedef struct Wiersz {
-    int rozmiar;
-    int maxRozmiar;
-    char* kolumna;
+	char *znaki;
+	int rozmiar;
+	int pojemnosc;
 }wiersz;
 
+void initWiersz(wiersz *W) {
+	W -> znaki = NULL;
+	W -> rozmiar = 0;
+	W -> pojemnosc = 0;
+}
+
+void powiekszWiersz(wiersz *W) {
+	W -> pojemnosc = 1 + (W -> pojemnosc) * MNOZNIK / DZIELNIK;
+	W -> znaki = (char*)realloc(W -> znaki, (W -> pojemnosc) * sizeof(char));
+}
+
+void wstawZnak(wiersz *W, char c) {
+	if(W -> rozmiar == W -> pojemnosc) {
+		powiekszWiersz(W);
+	}
+	W -> znaki[W -> rozmiar] = c;
+	(W -> rozmiar)++;
+}
+
+void wyczyscWiersz(wiersz *W) {
+	free(W -> znaki);
+}
+
+//====================================================================================================
+//Implementacja planszy do gry w Sokobana
+
 typedef struct Plansza {
-    int rozmiar;
-    int maxRozmiar;
-    wiersz* wiersz;
+	wiersz *wiersze;
+	int rozmiar;
+	int pojemnosc;
 }plansza;
 
-void iniPlansza(plansza *p) {
-    p -> rozmiar = 0;
-    p -> maxRozmiar = 0;
-    p -> wiersz = NULL;
+void initPlansza(plansza *P) {
+	P -> wiersze = NULL;
+	P -> rozmiar = 0;
+	P -> pojemnosc = 0;
 }
 
-void iniWiersz(wiersz *w) {
-    w -> rozmiar = 0;
-    w -> maxRozmiar = 0;
-    w -> kolumna = NULL;
+void powiekszPlansze(plansza *P) {
+	P -> pojemnosc = 1 + (P -> pojemnosc) * MNOZNIK / DZIELNIK;
+	P -> wiersze = (wiersz*)realloc(P -> wiersze, (P -> pojemnosc) * sizeof(wiersz));
 }
 
-void dodajWiersze(plansza *p) {
-    p -> maxRozmiar = 1 + (p -> maxRozmiar) * MNOZNIK / DZIELNIK;
-    p -> wiersz = (wiersz*)realloc(p -> wiersz, (p -> maxRozmiar) * sizeof(wiersz));
+wiersz* wstawWiersz(plansza *P) {
+	if(P -> rozmiar == P -> pojemnosc) {
+		powiekszPlansze(P);
+	}
+	wiersz *obecnyWiersz = &(P -> wiersze[P -> rozmiar]);
+	initWiersz(obecnyWiersz);
+	(P -> rozmiar)++;
+	return obecnyWiersz;
 }
 
-void dodajKolumny(wiersz *w) {
-    w -> maxRozmiar = 1 + (w -> maxRozmiar) * MNOZNIK / DZIELNIK;
-    w -> kolumna = (char*)realloc(w -> kolumna, (w -> maxRozmiar) * sizeof(char));
+void wyczyscPlansze(plansza *P) {
+	int liczbaWierszy = P -> rozmiar;
+	for(int i = 0; i < liczbaWierszy; ++i) {
+		wyczyscWiersz(&(P -> wiersze[i]));
+	}
+    free(P -> wiersze);
 }
 
-void wczytajPlansze(plansza *p, int gdzieSkrzynie[][2], int gdziePostac[]) {
-    int znak = 0;
-    int poprzedni = 0;
-    dodajWiersze(p);
-    wiersz *obecnyWiersz = p -> wiersz;
-    iniWiersz(obecnyWiersz);
+//====================================================================================================
+//Wczytywanie planszy
 
-    while((znak = getchar()) != '\n' || poprzedni != '\n') {
-        if(znak == '\n') {
-            (p -> rozmiar)++;
-            if(p -> rozmiar == p -> maxRozmiar) {
-                dodajWiersze(p);
-            }
-            obecnyWiersz = &(p -> wiersz[p -> rozmiar]);
-            iniWiersz(obecnyWiersz);
-        }
-        else {
-            if((znak >= 'a' && znak <= 'z') || (znak >= 'A' && znak <= 'Z')) {
-                int malaLitera = tolower(znak);
-                gdzieSkrzynie[malaLitera - 'a'][0] = p -> rozmiar;
-                gdzieSkrzynie[malaLitera - 'a'][1] = obecnyWiersz -> rozmiar;
-            }
-            else if(znak == '@' || znak == '*') {
-                gdziePostac[0] = p -> rozmiar;
-                gdziePostac[1] = obecnyWiersz -> rozmiar;
-            }
-
-            if(obecnyWiersz -> rozmiar == obecnyWiersz -> maxRozmiar) {
-                dodajKolumny(obecnyWiersz);
-            }
-            obecnyWiersz -> kolumna[obecnyWiersz -> rozmiar] = znak;
-            (obecnyWiersz -> rozmiar)++;
-        }
-        poprzedni = znak;
+void wczytajPlansze(plansza *P) {
+    char c = 0;
+    while((c = getchar()) != '\n') {
+        wiersz *obecnyWiersz = wstawWiersz(P);
+        do {
+            wstawZnak(obecnyWiersz, c);
+        }while((c = getchar()) != '\n');
     }
 }
 
-void wypiszPlansze(plansza *p) {
-    int ileWierszy = p -> rozmiar;
-    int ileKolumn = 0;
-    wiersz *obecnyWiersz = NULL;
+//====================================================================================================
+//Rysowanie planszy
 
-    for(int i = 0; i < ileWierszy; ++i) {
-        obecnyWiersz = &(p -> wiersz[i]);
-        ileKolumn = obecnyWiersz -> rozmiar;
-        for(int j = 0; j < ileKolumn; ++j) {
-            printf("%c", obecnyWiersz -> kolumna[j]);
+void rysujPlansze(plansza *P) {
+    int liczbaWierszy = P -> rozmiar;
+    wiersz *obecnyWiersz = P -> wiersze;
+
+    for(int i = 0; i < liczbaWierszy; ++i) {
+        int liczbaZnakow = obecnyWiersz -> rozmiar;
+        for(int j = 0; j < liczbaZnakow; ++j) {
+            putchar(obecnyWiersz -> znaki[j]);
         }
-        printf("\n");
+        putchar('\n');
+        obecnyWiersz++;
     }
-}
-
-void zwolnijPamiec(plansza *p) {
-    int ileWierszy = p -> rozmiar;
-    wiersz *obecnyWiersz = NULL;
-
-    for(int i = 0; i < ileWierszy; ++i) {
-        obecnyWiersz = &(p -> wiersz[i]);
-        free(obecnyWiersz -> kolumna);
-    }
-    free(p -> wiersz);
 }
 
 int main(void) {
-    plansza p;
-    int gdzieSkrzynie[26][2] = {0};
-    int gdziePostac[2] = {0};
-
-    iniPlansza(&p);
-    wczytajPlansze(&p, gdzieSkrzynie, gdziePostac);
-    wypiszPlansze(&p);
-    zwolnijPamiec(&p);
+    plansza P;
+    initPlansza(&P);
+    wczytajPlansze(&P);
+    rysujPlansze(&P);
+    wyczyscPlansze(&P);
     
     return 0;
 }
