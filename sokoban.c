@@ -68,8 +68,10 @@ wiersz* wstawWiersz(plansza *P) {
 
 void wyczyscPlansze(plansza *P) {
 	int liczbaWierszy = P -> rozmiar;
+	wiersz *obecnyWiersz = P -> wiersze;
 	for(int i = 0; i < liczbaWierszy; ++i) {
-		wyczyscWiersz(&(P -> wiersze[i]));
+		wyczyscWiersz(obecnyWiersz);
+		obecnyWiersz++;
 	}
     free(P -> wiersze);
 }
