@@ -141,6 +141,193 @@ void rysujPlansze(plansza *P) {
     }
 }
 
+//====================================================================================================
+//Implementacja planszy odwiedzin
+
+void kopiujPlansze(plansza *P, plansza *odwiedzone) {
+	int liczbaWierszy = P -> rozmiar;
+	odwiedzone -> wiersze = (wiersz*)malloc(liczbaWierszy * sizeof(wiersz));
+	odwiedzone -> rozmiar = liczbaWierszy;
+	odwiedzone -> pojemnosc = liczbaWierszy;
+	wiersz *wierszPlanszy = P -> wiersze;
+	wiersz *wierszOdw = odwiedzone -> wiersze;
+
+	for(int i = 0; i < liczbaWierszy; ++i) {
+		int liczbaZnakow = wierszPlanszy -> rozmiar;
+		wierszOdw -> znaki = (char*)malloc(liczbaZnakow * sizeof(char));
+		wierszOdw -> rozmiar = liczbaZnakow;
+		wierszOdw -> pojemnosc = liczbaZnakow;
+		wierszPlanszy++;
+		wierszOdw++;
+	}
+}
+
+void zerujPlansze(plansza *odwiedzone) {
+	int liczbaWierszy = odwiedzone -> rozmiar;
+	wiersz *obecnyWiersz = odwiedzone -> wiersze;
+	
+	for(int i = 0; i < liczbaWierszy; ++i) {
+		int liczbaZnakow = obecnyWiersz -> rozmiar;
+		for(int j = 0; j < liczbaZnakow; ++j) {
+			obecnyWiersz -> znaki[j] = 'O';
+		}
+		obecnyWiersz++;
+	}
+}
+
+//====================================================================================================
+//Sprawdzenie czy mozna dojsc z pola gracza do pola pchniecia
+
+int wolnePole(char c) {
+	return c == '-' || c == '+' || c == '@' || c == '*';
+}
+
+int bezpiecznePole(plansza *P, int i, int j) {
+	int liczbaWierszy = P -> rozmiar;
+	if (i >= 0 && i < liczbaWierszy && 
+		j >= 0 && j < (P -> wiersze[i].rozmiar) && 
+		wolnePole(P -> wiersze[i].znaki[j])) {
+		return 1;
+	}
+	return 0;
+}
+
+int odwiedzone(plansza *odw, int i, int j) {
+	return odw -> wiersze[i].znaki[j] == 'X';
+}
+
+int moznaDojsc(plansza *P, plansza *odw, int pWiersz, int pKol, pozycja pchniecie) {
+	if(bezpiecznePole(P, pWiersz, pKol) && !odwiedzone(odw, pWiersz, pKol)) {
+
+		(odw -> wiersze[pWiersz].znaki[pKol]) = 'X'; //zaznaczam odwiedzone pole
+
+		if(pWiersz == pchniecie.nrWiersza && pKol == pchniecie.nrKolumny) return 1;
+
+		int wPrawo = moznaDojsc(P, odw, pWiersz, pKol + 1, pchniecie);
+		if(wPrawo) return 1;
+
+		int wDol = moznaDojsc(P, odw, pWiersz + 1, pKol, pchniecie);
+		if(wDol) return 1;
+
+		int wLewo = moznaDojsc(P, odw, pWiersz, pKol - 1, pchniecie);
+		if(wLewo) return 1;
+
+		int wGore = moznaDojsc(P, odw, pWiersz - 1, pKol, pchniecie);
+		if(wGore) return 1;
+	}
+	return 0;
+}
+
+//====================================================================================================
+//Sprawdzenie czy mozna pchnac skrzynie
+
+typedef enum Kierunek {
+	DOL = 2,
+	GORA = 8,
+	LEWO = 4,
+	PRAWO = 6
+}kierunek;
+
+int moznaPchnac(plansza *P, kierunek kier, pozycja skrzynia) {
+	if(kier == LEWO || kier == PRAWO) {
+		if(bezpiecznePole(P, skrzynia.nrWiersza, skrzynia.nrKolumny - 1) &&
+		   bezpiecznePole(P, skrzynia.nrWiersza, skrzynia.nrKolumny + 1)) {
+		   return 1;
+		}
+	}
+	else {
+		if(bezpiecznePole(P, skrzynia.nrWiersza - 1, skrzynia.nrKolumny) &&
+		   bezpiecznePole(P, skrzynia.nrWiersza + 1, skrzynia.nrKolumny)) {
+		   return 1;
+		}
+	}
+	return 0;
+}
+
+//====================================================================================================
+//Wykonaj ruch
+
+typedef struct Ruch {
+	char skrzynia;
+	kierunek kier;
+}ruch;
+
+int poleDocelowe(char c) {
+	return isupper(c) || c == '+' || c == '*';
+}
+
+void wykonajRuch(plansza *P, pozycja *postac, pozycja *skrzynia, ruch r) {
+	int sWiersz = skrzynia -> nrWiersza;
+	int sKol = skrzynia -> nrKolumny;
+	int pWiersz = postac -> nrWiersza;
+	int pKol = postac -> nrKolumny;
+	int kierPchniecia = r.kier;
+	char nazwaSkrzyni = r.skrzynia;
+
+	int deltaPoz[4][2] = {{1, 0}, {0, -1}, {0, 1}, {-1, 0}}; // dol lewo prawo gora
+	int sNowyWiersz = sWiersz + deltaPoz[kierPchniecia / 2 - 1][0];
+	int sNowaKol = sKol + deltaPoz[kierPchniecia / 2 - 1][1];
+
+	if(poleDocelowe(P -> wiersze[sWiersz].znaki[sKol])) {
+		P -> wiersze[sWiersz].znaki[sKol] = '*';
+	}
+	else {
+		P -> wiersze[sWiersz].znaki[sKol] = '@';
+	}
+	if(poleDocelowe(P -> wiersze[pWiersz].znaki[pKol])) {
+		P -> wiersze[pWiersz].znaki[pKol] = '+';
+	}
+	else {
+		P -> wiersze[pWiersz].znaki[pKol] = '-';
+	}
+	if(poleDocelowe(P -> wiersze[sNowyWiersz].znaki[sNowaKol])) {
+		P -> wiersze[sNowyWiersz].znaki[sNowaKol] = toupper(nazwaSkrzyni);
+	}
+	else {
+		P -> wiersze[sNowyWiersz].znaki[sNowaKol] = nazwaSkrzyni;
+	}
+	skrzynia -> nrWiersza = sNowyWiersz;
+	skrzynia -> nrKolumny = sNowaKol;
+	postac -> nrWiersza = sWiersz;
+	postac -> nrKolumny = sKol;
+}
+
+//====================================================================================================
+//Czytanie i polecen i wykonywanie ruchow
+
+void gdziePchniecie(kierunek kierPchniecia, pozycja pozSkrzyni, pozycja *pozPchniecia) {
+	int deltaPoz[4][2] = {{1, 0}, {0, -1}, {0, 1}, {-1, 0}}; // dol lewo prawo gora
+	pozPchniecia -> nrWiersza = pozSkrzyni.nrWiersza - deltaPoz[kierPchniecia / 2 - 1][0];
+	pozPchniecia -> nrKolumny = pozSkrzyni.nrKolumny - deltaPoz[kierPchniecia / 2 - 1][1];
+}
+
+void czytajPolecenia(plansza *P, pozycja skrzynie[], pozycja *postac) {
+	char c = 0;
+	ruch ruchPostaci;
+	plansza odw;
+	kopiujPlansze(P, &odw);
+
+	while((c = getchar()) != '.') {
+		ruchPostaci.skrzynia = c;
+		c = getchar(); //kierunek pchniecia
+		getchar(); //pozbycie się znaku nowej linii
+		ruchPostaci.kier = c - '0';
+		pozycja pozPchniecia;
+		pozycja *pozSkrzyni = &skrzynie[ruchPostaci.skrzynia - 'a'];
+		gdziePchniecie(ruchPostaci.kier, *pozSkrzyni, &pozPchniecia);
+
+		if(moznaPchnac(P, ruchPostaci.kier, *pozSkrzyni)) {
+			zerujPlansze(&odw);
+			if(moznaDojsc(P, &odw, postac -> nrWiersza, postac -> nrKolumny, pozPchniecia)) {
+				wykonajRuch(P, postac, pozSkrzyni, ruchPostaci);
+			}
+		}
+		rysujPlansze(P);
+	}
+
+	wyczyscPlansze(&odw);
+}
+
 int main(void) {
     plansza P;
 	pozycja skrzynie[26];
@@ -148,6 +335,7 @@ int main(void) {
     initPlansza(&P);
     wczytajPlansze(&P, skrzynie, &postac);
     rysujPlansze(&P);
+	czytajPolecenia(&P, skrzynie, &postac);
     wyczyscPlansze(&P);
     
     return 0;
