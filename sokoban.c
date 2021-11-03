@@ -328,7 +328,57 @@ void czytajPolecenia(plansza *P, pozycja skrzynie[], pozycja *postac) {
 	wyczyscPlansze(&odw);
 }
 
+//====================================================================================================
+//Implementacja stosu ruchow
+
+typedef struct stosRuchow {
+	ruch polecenie;
+	pozycja postac;
+	struct stosRuchow *nast;
+}stosR;
+
+void initStos(stosR **glowa) {
+	*glowa = NULL;
+}
+
+void wstawNaStos(stosR **glowa, ruch polecenie, pozycja postac) {
+	stosR *nowyElement = (stosR*)malloc(sizeof(stosR));
+	nowyElement -> polecenie = polecenie;
+	nowyElement -> postac = postac;
+	nowyElement -> nast = *glowa;
+	*glowa = nowyElement;
+}
+
+int pustyStos(stosR *glowa) {
+	return glowa == NULL;
+}
+
+void zdejmijZeStosu(stosR **glowa) {
+	if(!pustyStos(*glowa)) {
+		stosR *nowaGlowa = (*glowa) -> nast;
+		free(*glowa);
+		*glowa = nowaGlowa;
+	}
+}
+
+void wyczyscStos(stosR **glowa) {
+	if(!pustyStos(*glowa)) {
+		wyczyscStos(&((*glowa) -> nast));
+		free(*glowa);
+		*glowa = NULL;
+	}
+}
+
+void wypiszStos(stosR *glowa) {
+	while(glowa != NULL) {
+		printf("%c %u %d %d\n", glowa -> polecenie.skrzynia, glowa -> polecenie.kier,
+		glowa -> postac.nrWiersza, glowa -> postac.nrKolumny);
+		glowa = glowa -> nast;
+	}
+}
+
 int main(void) {
+	
     plansza P;
 	pozycja skrzynie[26];
 	pozycja postac;
@@ -337,6 +387,7 @@ int main(void) {
     rysujPlansze(&P);
 	czytajPolecenia(&P, skrzynie, &postac);
     wyczyscPlansze(&P);
+	
     
     return 0;
 }
