@@ -102,6 +102,10 @@ int czyPostac(char c) {
 	return c == '@' || c == '*';
 }
 
+int literaNaIndeks(char c) {
+	return c - 'a'; 
+}
+
 void ustawPozycje(pozycja *poz, int numerWiersza, int numerKolumny) {
 	poz -> nrWiersza = numerWiersza;
 	poz -> nrKolumny = numerKolumny;
@@ -114,7 +118,7 @@ void wczytajPlansze(plansza *P, pozycja skrzynie[], pozycja *postac) {
         do {
 			wstawZnak(obecnyWiersz, c);
 			if(czySkrzynia(c)) {
-				pozycja *pozSkrzyni = &skrzynie[tolower(c) - 'a'];
+				pozycja *pozSkrzyni = &skrzynie[literaNaIndeks(tolower(c))];
 				ustawPozycje(pozSkrzyni, P -> rozmiar - 1, obecnyWiersz -> rozmiar - 1);
 			}
 			else if(czyPostac(c)) {
@@ -293,7 +297,83 @@ void wykonajRuch(plansza *P, pozycja *postac, pozycja *skrzynia, ruch r) {
 }
 
 //====================================================================================================
-//Czytanie i polecen i wykonywanie ruchow
+//Implementacja stosu ruchow
+
+typedef struct stosRuchow {
+	char nazwaSkrzyni;
+	pozycja postac;
+	struct stosRuchow *nast;
+}stosR;
+
+void initStos(stosR **glowa) {
+	*glowa = NULL;
+}
+
+void wstawNaStos(stosR **glowa, char nazwaSkrzyni, pozycja postac) {
+	stosR *nowyElement = (stosR*)malloc(sizeof(stosR));
+	nowyElement -> nazwaSkrzyni = nazwaSkrzyni;
+	nowyElement -> postac = postac;
+	nowyElement -> nast = *glowa;
+	*glowa = nowyElement;
+}
+
+int pustyStos(stosR *glowa) {
+	return glowa == NULL;
+}
+
+void zdejmijZeStosu(stosR **glowa) {
+	stosR *nowaGlowa = (*glowa) -> nast;
+	free(*glowa);
+	*glowa = nowaGlowa;
+}
+
+void wyczyscStos(stosR **glowa) {
+	if(!pustyStos(*glowa)) {
+		wyczyscStos(&((*glowa) -> nast));
+		free(*glowa);
+		*glowa = NULL;
+	}
+}
+
+//====================================================================================================
+//Cofanie ruchow
+
+void cofnijRuch(plansza *P, pozycja *postac, pozycja skrzynie[], stosR *glowa) {
+	int pWiersz = postac -> nrWiersza;
+	int pKol = postac -> nrKolumny;
+	char nazwaSkrzyni = glowa -> nazwaSkrzyni;
+	int sWiersz = skrzynie[literaNaIndeks(nazwaSkrzyni)].nrWiersza;
+	int sKol = skrzynie[literaNaIndeks(nazwaSkrzyni)].nrKolumny;
+	int pNowyWiersz = glowa -> postac.nrWiersza;
+	int pNowaKol = glowa -> postac.nrKolumny;
+
+	if(poleDocelowe(P -> wiersze[pWiersz].znaki[pKol])) {
+		P -> wiersze[pWiersz].znaki[pKol] = toupper(nazwaSkrzyni);
+	}
+	else {
+		P -> wiersze[pWiersz].znaki[pKol] = nazwaSkrzyni;
+	}
+	if(poleDocelowe(P -> wiersze[sWiersz].znaki[sKol])) {
+		P -> wiersze[sWiersz].znaki[sKol] = '+';
+	}
+	else {
+		P -> wiersze[sWiersz].znaki[sKol] = '-';
+	}
+	if(poleDocelowe(P -> wiersze[pNowyWiersz].znaki[pNowaKol])) {
+		P -> wiersze[pNowyWiersz].znaki[pNowaKol] = '*';
+	}
+	else {
+		P -> wiersze[pNowyWiersz].znaki[pNowaKol] = '@';
+	}
+	
+	skrzynie[literaNaIndeks(nazwaSkrzyni)].nrWiersza = pWiersz;
+	skrzynie[literaNaIndeks(nazwaSkrzyni)].nrKolumny = pKol;
+	postac -> nrWiersza = pNowyWiersz;
+	postac -> nrKolumny = pNowaKol;
+}
+
+//====================================================================================================
+//Czytanie polecen i wykonywanie ruchow
 
 void gdziePchniecie(kierunek kierPchniecia, pozycja pozSkrzyni, pozycja *pozPchniecia) {
 	int deltaPoz[4][2] = {{1, 0}, {0, -1}, {0, 1}, {-1, 0}}; // dol lewo prawo gora
@@ -306,75 +386,37 @@ void czytajPolecenia(plansza *P, pozycja skrzynie[], pozycja *postac) {
 	ruch ruchPostaci;
 	plansza odw;
 	kopiujPlansze(P, &odw);
+	stosR *ruchyGracza;
+	initStos(&ruchyGracza);
 
 	while((c = getchar()) != '.') {
-		ruchPostaci.skrzynia = c;
-		c = getchar(); //kierunek pchniecia
-		getchar(); //pozbycie się znaku nowej linii
-		ruchPostaci.kier = c - '0';
-		pozycja pozPchniecia;
-		pozycja *pozSkrzyni = &skrzynie[ruchPostaci.skrzynia - 'a'];
-		gdziePchniecie(ruchPostaci.kier, *pozSkrzyni, &pozPchniecia);
+		if(czySkrzynia(c)) {
+			ruchPostaci.skrzynia = c;
+			c = getchar(); //kierunek pchniecia
+			ruchPostaci.kier = c - '0';
+			pozycja pozPchniecia;
+			pozycja *pozSkrzyni = &skrzynie[ruchPostaci.skrzynia - 'a'];
+			gdziePchniecie(ruchPostaci.kier, *pozSkrzyni, &pozPchniecia);
 
-		if(moznaPchnac(P, ruchPostaci.kier, *pozSkrzyni)) {
-			zerujPlansze(&odw);
-			if(moznaDojsc(P, &odw, postac -> nrWiersza, postac -> nrKolumny, pozPchniecia)) {
-				wykonajRuch(P, postac, pozSkrzyni, ruchPostaci);
+			if(moznaPchnac(P, ruchPostaci.kier, *pozSkrzyni)) {
+				zerujPlansze(&odw);
+				if(moznaDojsc(P, &odw, postac -> nrWiersza, postac -> nrKolumny, pozPchniecia)) {
+					wstawNaStos(&ruchyGracza, ruchPostaci.skrzynia, *postac);
+					wykonajRuch(P, postac, pozSkrzyni, ruchPostaci);
+				}
 			}
 		}
+		else {
+			if(!pustyStos(ruchyGracza)) {
+				cofnijRuch(P, postac, skrzynie, ruchyGracza);
+				zdejmijZeStosu(&ruchyGracza);
+			}
+		}
+		getchar(); //pozbycie się znaku nowej linii
 		rysujPlansze(P);
 	}
-
 	wyczyscPlansze(&odw);
-}
-
-//====================================================================================================
-//Implementacja stosu ruchow
-
-typedef struct stosRuchow {
-	ruch polecenie;
-	pozycja postac;
-	struct stosRuchow *nast;
-}stosR;
-
-void initStos(stosR **glowa) {
-	*glowa = NULL;
-}
-
-void wstawNaStos(stosR **glowa, ruch polecenie, pozycja postac) {
-	stosR *nowyElement = (stosR*)malloc(sizeof(stosR));
-	nowyElement -> polecenie = polecenie;
-	nowyElement -> postac = postac;
-	nowyElement -> nast = *glowa;
-	*glowa = nowyElement;
-}
-
-int pustyStos(stosR *glowa) {
-	return glowa == NULL;
-}
-
-void zdejmijZeStosu(stosR **glowa) {
-	if(!pustyStos(*glowa)) {
-		stosR *nowaGlowa = (*glowa) -> nast;
-		free(*glowa);
-		*glowa = nowaGlowa;
-	}
-}
-
-void wyczyscStos(stosR **glowa) {
-	if(!pustyStos(*glowa)) {
-		wyczyscStos(&((*glowa) -> nast));
-		free(*glowa);
-		*glowa = NULL;
-	}
-}
-
-void wypiszStos(stosR *glowa) {
-	while(glowa != NULL) {
-		printf("%c %u %d %d\n", glowa -> polecenie.skrzynia, glowa -> polecenie.kier,
-		glowa -> postac.nrWiersza, glowa -> postac.nrKolumny);
-		glowa = glowa -> nast;
-	}
+	wyczyscStos(&ruchyGracza);
 }
 
 int main(void) {
